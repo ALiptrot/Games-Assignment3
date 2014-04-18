@@ -292,7 +292,7 @@ void main()
 		}
 		if (myEngine->KeyHit(cameraResetKey))
 		{
-			myCamera->SetPosition(0,12,-30);
+			myCamera->SetPosition(hoverCar[0].XPos,12,hoverCar[0].ZPos-30);
 		}
 		if (myEngine->KeyHit(quitKey))
 		{
