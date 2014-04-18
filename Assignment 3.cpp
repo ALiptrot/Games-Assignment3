@@ -16,11 +16,12 @@ void main()
 	myEngine->StartWindowed();
 
 	// Add default folder for meshes and other media
-	myEngine->AddMediaFolder( "H:\\Assignment 3 Models" );
+	myEngine->AddMediaFolder( "C:\\Users\\BEAST\\Documents\\Assignment 3 Models" );
 
 	/**** Set up your scene here ****/
 		ICamera* myCamera = myEngine->CreateCamera(kManual);//creating and setting up the camera
 		IFont* myFont = myEngine->LoadFont("Comic Sans MS", 36);//setting up the font used with any text displayed
+		myEngine->StartMouseCapture();
 
 		//constants
 		const int kNumberOfCheckpoints = 2;//number of checkpoints on the track
@@ -162,6 +163,11 @@ void main()
 		hoverCar[0].XPos = hoverCar[0].hoverCarModel->GetX();//gets the x position of the player
 		hoverCar[0].ZPos = hoverCar[0].hoverCarModel->GetZ();//gets the z position of the player
 
+		float mouseMoveX = myEngine->GetMouseMovementX();
+		float mouseMoveY = myEngine->GetMouseMovementY();
+		myCamera->RotateLocalY((kGameSpeed*mouseMoveX*3)/fps);
+		myCamera->RotateLocalX((kGameSpeed*mouseMoveY*3)/fps);
+
 		if (playerRotation >= 360)
 		{
 			playerRotation = 0;//sets the player rotation back to 0 so that the rotation value cannot go above 360 degrees
@@ -293,6 +299,7 @@ void main()
 		if (myEngine->KeyHit(cameraResetKey))
 		{
 			myCamera->SetPosition(hoverCar[0].XPos,12,hoverCar[0].ZPos-30);
+			myCamera->ResetOrientation();
 		}
 		if (myEngine->KeyHit(quitKey))
 		{
