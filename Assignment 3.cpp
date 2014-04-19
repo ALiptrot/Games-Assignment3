@@ -1,6 +1,7 @@
 // Assignment 3.cpp: A program using the TL-Engine
 
 #include <TL-Engine.h>	// TL-Engine include file and namespace
+#include <iostream>
 #include <sstream>
 #include <math.h>
 using namespace tle;
@@ -21,7 +22,6 @@ void main()
 	/**** Set up your scene here ****/
 		ICamera* myCamera = myEngine->CreateCamera(kManual);//creating and setting up the camera
 		IFont* myFont = myEngine->LoadFont("Comic Sans MS", 36);//setting up the font used with any text displayed
-		myEngine->StartMouseCapture();
 
 		//constants
 		const int kNumberOfCheckpoints = 2;//number of checkpoints on the track
@@ -34,8 +34,10 @@ void main()
 		const float playerLeanLimit = 40;
 		const int kNumberOfCars = 1;//number of hovercars in the world
 		const int kAccel = 2;//acceleration used in the formula to get the new speed of the vehicles
-		const int kCheckpointRadius = 3;
-		const int kCarRadius = 5;
+		const int kCheckpointRadius = 3;//radius of the collision for the inside of the checkpoint
+		const int kCarRadius = 4;//radius of the hovercar
+		const float kIsleLengthZFromOrigin = 3.5;
+		const float kIsleLengthXFromOrigin = 0.2;
 		
 		//checkpoints
 		IMesh* checkpointMesh = myEngine->LoadMesh("Checkpoint.x");
@@ -60,17 +62,51 @@ void main()
 
 		//isles
 		IMesh* isleMesh = myEngine->LoadMesh("IsleStraight.x");
-		IModel* isleModels[kNumberOfIsles];
-		isleModels[0] = isleMesh->CreateModel(-10,0,40);
-		isleModels[1] = isleMesh->CreateModel(10,0,40);
-		isleModels[2] = isleMesh->CreateModel(10,0,53);
-		isleModels[3] = isleMesh->CreateModel(-10,0,53);
+		struct islestructure
+		{
+			IModel* isleModel;
+			float xPos;
+			float zPos;
+			float maxX;
+			float minX;
+			float maxZ;
+			float minZ;
+		};
+		islestructure isles[kNumberOfIsles];
+		isles[0].xPos = -10, isles[0].zPos = 40;
+		isles[0].maxX = isles[0].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[0].minX = isles[0].xPos - kIsleLengthXFromOrigin - kCarRadius; 
+		isles[0].maxZ = isles[0].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[0].minZ = isles[0].zPos - kIsleLengthZFromOrigin - kCarRadius;
+		isles[0].isleModel = isleMesh->CreateModel(isles[0].xPos,0,isles[0].zPos);
+		isles[1].xPos = 10, isles[1].zPos = 40;
+		isles[1].maxX = isles[1].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[1].minX = isles[1].xPos - kIsleLengthXFromOrigin - kCarRadius; 
+		isles[1].maxZ = isles[1].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[1].minZ = isles[1].zPos - kIsleLengthZFromOrigin - kCarRadius;
+		isles[1].isleModel = isleMesh->CreateModel(isles[1].xPos,0,isles[1].zPos);
+		isles[2].xPos = 10, isles[2].zPos = 53;
+		isles[2].maxX = isles[2].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[2].minX = isles[2].xPos - kIsleLengthXFromOrigin - kCarRadius; 
+		isles[2].maxZ = isles[2].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[2].minZ = isles[2].zPos - kIsleLengthZFromOrigin - kCarRadius;
+		isles[2].isleModel = isleMesh->CreateModel(isles[2].xPos,0,isles[2].zPos);
+		isles[3].xPos = -10, isles[3].zPos = 53;
+		isles[3].maxX = isles[3].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[3].minX = isles[3].xPos - kIsleLengthXFromOrigin - kCarRadius; 
+		isles[3].maxZ = isles[3].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[3].minZ = isles[3].zPos - kIsleLengthZFromOrigin - kCarRadius;
+		isles[3].isleModel = isleMesh->CreateModel(isles[3].xPos,0,isles[3].zPos);
 
 		//walls
 		IMesh* wallMesh = myEngine->LoadMesh("Wall.x");
-		IModel* wallModels[kNumberOfWalls];
-		wallModels[0] = wallMesh->CreateModel(-10.5,0,46);
-		wallModels[1] = wallMesh->CreateModel(9.5,0,46);
+		struct wallstructure
+		{
+			IModel* wallModel;
+			float xPos;
+			float zPos;
+			float maxX;
+			float minX;
+			float maxZ;
+			float minZ;
+		};
+		wallstructure walls[kNumberOfWalls];
+		walls[0].xPos = -10.5, walls[0].zPos = 46;
+		walls[0].wallModel = wallMesh->CreateModel(walls[0].xPos,0,walls[0].zPos);
+		walls[1].xPos = 9.5, walls[1].zPos = 46;
+		walls[1].wallModel = wallMesh->CreateModel(walls[1].xPos,0,walls[1].zPos);
 
 		//sky
 		IMesh* skyMesh = myEngine->LoadMesh("Skybox 07.x");
@@ -141,6 +177,7 @@ void main()
 		const EKeyCode cameraRightKey = Key_Right;
 		const EKeyCode cameraLeftKey = Key_Left;
 		const EKeyCode cameraResetKey = Key_1;
+		const EKeyCode mouseShowKey = Key_Tab;
 
 		float fontX = 0;//texts x position
 		float fontY = kbottomOfScreen + 10;//texts y position
@@ -271,7 +308,10 @@ void main()
 		}
 		for (int i = 0; i < kNumberOfIsles; i++)
 		{
-
+			if ((hoverCar[0].XPos > isles[i].minX && hoverCar[0].XPos < isles[i].maxX) && (hoverCar[0].ZPos > isles[i].minZ && hoverCar[0].ZPos < isles[i].maxZ))
+			{
+				cout << "collision with isle " << i;
+			}
 		}
 		for (int i = 0; i < kNumberOfWalls; i++)
 		{
@@ -300,6 +340,14 @@ void main()
 		{
 			myCamera->SetPosition(hoverCar[0].XPos,12,hoverCar[0].ZPos-30);
 			myCamera->ResetOrientation();
+		}
+		if (myEngine->KeyHeld(mouseShowKey))
+		{
+			myEngine->StopMouseCapture();
+		}
+		if (!myEngine->KeyHeld(mouseShowKey))
+		{
+			myEngine->StartMouseCapture();
 		}
 		if (myEngine->KeyHit(quitKey))
 		{
