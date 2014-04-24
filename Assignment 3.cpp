@@ -4,12 +4,70 @@
 #include <iostream>
 #include <sstream>
 #include <math.h>
+#include <vector>
 using namespace tle;
 using namespace std;
+struct checkpointstructure
+{
+	IModel* checkpointModel;
+	float XPos;
+	float ZPos;
+	bool isPastCheckpoint;
+	int number;
+};
+struct islestructure
+{
+	IModel* isleModel;
+	float xPos;
+	float zPos;
+	float maxX;
+	float minX;
+	float maxZ;
+	float minZ;
+};
+struct wallstructure
+{
+	IModel* wallModel;
+	float xPos;
+	float zPos;
+	float maxX;
+	float minX;
+	float maxZ;
+	float minZ;
+};
+enum MoveState
+{
+	Stationary = 0,
+	Reverse = 1,
+	Forward = 2,
+	Collision = 3,
+};
+enum RaceState
+{
+	Start = 0,
+	Checkpoint1 = 1,
+	Finish = 3,
+};
+struct Vehicle
+{
+	IModel* hoverCarModel;//vehicle model
+	MoveState carMoveState;//the move state (Stationary, Reverse or Forward)
+	MoveState lastCarMoveState;
+	float XPos;//the x position of the model
+	float ZPos;//the z position of the model
+	float moveXOld;//the old movement x units of the model
+	float moveZOld;//the old movement z units of the model
+	float rotation;//the rotation value of the model
+	float moveX;//the current movement x units of the model
+	float moveZ;//the current movement z units of the model
+	int carRaceState;//ie start, checkpoint1, finish
+	int lastCarRaceState;
+};
 
 float DegreesToRadians(float degrees);
 float Hover(float Xcounter);
 string PlayerRaceStateText(int raceState);
+void DetectCollision(Vehicle hoverCar[], islestructure isles[], wallstructure walls[], int kNumberOfWalls, int kNumberOfIsles);
 void main()
 {
 	// Create a 3D engine (using TLX engine here) and open a window for it
@@ -26,7 +84,7 @@ void main()
 		//constants
 		const int kNumberOfCheckpoints = 2;//number of checkpoints on the track
 		const int kNumberOfIsles = 4;//number of isles on the track
-		const int kNumberOfWalls = 2;//number of walls on the track
+		const int kNumberOfWalls = 3;//number of walls on the track
 		const int kbottomOfScreen = 666;//bottom of the screen to draw the UI and text
 		const float kMaxSpeedForward = 120*120;//top speed of a vehicle going forwards
 		const float kMaxSpeedBackward = 60*60;//top speed of a vehicle going backwards
@@ -35,20 +93,14 @@ void main()
 		const int kNumberOfCars = 1;//number of hovercars in the world
 		const int kAccel = 2;//acceleration used in the formula to get the new speed of the vehicles
 		const int kCheckpointRadius = 3;//radius of the collision for the inside of the checkpoint
-		const int kCarRadius = 4;//radius of the hovercar
-		const float kIsleLengthZFromOrigin = 3.5;
-		const float kIsleLengthXFromOrigin = 0.2;
+		const int kCarRadius = 4.5;//radius of the hovercar
+		const float kIsleLengthZFromOrigin = 4.72;
+		const float kIsleLengthXFromOrigin = 0.1;
+		const float kWallLengthZFromOrigin = 4;
+		const float kWallLengthXFromOrigin = 1;
 		
 		//checkpoints
 		IMesh* checkpointMesh = myEngine->LoadMesh("Checkpoint.x");
-		struct checkpointstructure
-		{
-			IModel* checkpointModel;
-			float XPos;
-			float ZPos;
-			bool isPastCheckpoint;
-			int number;
-		};
 		checkpointstructure checkpoint[kNumberOfCheckpoints];
 		checkpoint[0].checkpointModel = checkpointMesh->CreateModel(0,0,20);
 		checkpoint[0].XPos = 0; checkpoint[0].ZPos = 20;
@@ -62,51 +114,32 @@ void main()
 
 		//isles
 		IMesh* isleMesh = myEngine->LoadMesh("IsleStraight.x");
-		struct islestructure
-		{
-			IModel* isleModel;
-			float xPos;
-			float zPos;
-			float maxX;
-			float minX;
-			float maxZ;
-			float minZ;
-		};
 		islestructure isles[kNumberOfIsles];
 		isles[0].xPos = -10, isles[0].zPos = 40;
-		isles[0].maxX = isles[0].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[0].minX = isles[0].xPos - kIsleLengthXFromOrigin - kCarRadius; 
-		isles[0].maxZ = isles[0].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[0].minZ = isles[0].zPos - kIsleLengthZFromOrigin - kCarRadius;
-		isles[0].isleModel = isleMesh->CreateModel(isles[0].xPos,0,isles[0].zPos);
 		isles[1].xPos = 10, isles[1].zPos = 40;
-		isles[1].maxX = isles[1].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[1].minX = isles[1].xPos - kIsleLengthXFromOrigin - kCarRadius; 
-		isles[1].maxZ = isles[1].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[1].minZ = isles[1].zPos - kIsleLengthZFromOrigin - kCarRadius;
-		isles[1].isleModel = isleMesh->CreateModel(isles[1].xPos,0,isles[1].zPos);
 		isles[2].xPos = 10, isles[2].zPos = 53;
-		isles[2].maxX = isles[2].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[2].minX = isles[2].xPos - kIsleLengthXFromOrigin - kCarRadius; 
-		isles[2].maxZ = isles[2].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[2].minZ = isles[2].zPos - kIsleLengthZFromOrigin - kCarRadius;
-		isles[2].isleModel = isleMesh->CreateModel(isles[2].xPos,0,isles[2].zPos);
 		isles[3].xPos = -10, isles[3].zPos = 53;
-		isles[3].maxX = isles[3].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[3].minX = isles[3].xPos - kIsleLengthXFromOrigin - kCarRadius; 
-		isles[3].maxZ = isles[3].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[3].minZ = isles[3].zPos - kIsleLengthZFromOrigin - kCarRadius;
-		isles[3].isleModel = isleMesh->CreateModel(isles[3].xPos,0,isles[3].zPos);
+
+		for (int i = 0; i < kNumberOfIsles; i++)
+		{
+			isles[i].maxX = isles[i].xPos + kIsleLengthXFromOrigin + kCarRadius, isles[i].minX = isles[i].xPos - kIsleLengthXFromOrigin - kCarRadius; 
+			isles[i].maxZ = isles[i].zPos + kIsleLengthZFromOrigin + kCarRadius, isles[i].minZ = isles[i].zPos - kIsleLengthZFromOrigin - kCarRadius;
+			isles[i].isleModel = isleMesh->CreateModel(isles[i].xPos,0,isles[i].zPos);
+		}
 
 		//walls
 		IMesh* wallMesh = myEngine->LoadMesh("Wall.x");
-		struct wallstructure
-		{
-			IModel* wallModel;
-			float xPos;
-			float zPos;
-			float maxX;
-			float minX;
-			float maxZ;
-			float minZ;
-		};
 		wallstructure walls[kNumberOfWalls];
 		walls[0].xPos = -10.5, walls[0].zPos = 46;
-		walls[0].wallModel = wallMesh->CreateModel(walls[0].xPos,0,walls[0].zPos);
 		walls[1].xPos = 9.5, walls[1].zPos = 46;
-		walls[1].wallModel = wallMesh->CreateModel(walls[1].xPos,0,walls[1].zPos);
+		walls[2].xPos = 30, walls[2].zPos = 30;
+
+		for (int i = 0; i < kNumberOfWalls; i++)
+		{
+			walls[i].maxX = walls[i].xPos + kWallLengthXFromOrigin + kCarRadius, walls[i].minX = walls[i].xPos - kWallLengthXFromOrigin - kCarRadius; 
+			walls[i].maxZ = walls[i].zPos + kWallLengthZFromOrigin + kCarRadius, walls[i].minZ = walls[i].zPos - kWallLengthZFromOrigin - kCarRadius;
+			walls[i].wallModel = wallMesh->CreateModel(walls[i].xPos,0,walls[i].zPos);
+		}
 
 		//sky
 		IMesh* skyMesh = myEngine->LoadMesh("Skybox 07.x");
@@ -117,32 +150,6 @@ void main()
 		IModel* floor = floorMesh->CreateModel();
 
 		//Hovercars
-		enum MoveState
-		{
-			Stationary = 0,
-			Reverse = 1,
-			Forward = 2,
-		};
-		enum RaceState
-		{
-			Start = 0,
-			Checkpoint1 = 1,
-			Finish = 3,
-		};
-		struct Vehicle
-		{
-			IModel* hoverCarModel;//vehicle model
-			MoveState carMoveState;//the move state (Stationary, Reverse or Forward)
-			float XPos;//the x position of the model
-			float ZPos;//the z position of the model
-			float moveXOld;//the old movement x units of the model
-			float moveZOld;//the old movement z units of the model
-			float rotation;//the rotation value of the model
-			float moveX;//the current movement x units of the model
-			float moveZ;//the current movement z units of the model
-			int carRaceState;//ie start, checkpoint1, finish
-			int lastCarRaceState;
-		};
 		Vehicle hoverCar[kNumberOfCars];
 		for (int i = 0; i < kNumberOfCars; i++)
 		{
@@ -178,6 +185,7 @@ void main()
 		const EKeyCode cameraLeftKey = Key_Left;
 		const EKeyCode cameraResetKey = Key_1;
 		const EKeyCode mouseShowKey = Key_Tab;
+		const EKeyCode camera1stPersonKey = Key_2;
 
 		float fontX = 0;//texts x position
 		float fontY = kbottomOfScreen + 10;//texts y position
@@ -188,6 +196,7 @@ void main()
 		float Xcounter = 0;//used to get the Y values of the sine wave, so the car appears to hover
 		float playerLean = 0;//used to store how much the player is leaning when turning
 		float collisionDist = 0;
+		bool is1stPerson = false;
 	// The main game loop, repeat until engine is stopped
 		myEngine->Timer();//starts the timer
 	while (myEngine->IsRunning())
@@ -199,6 +208,7 @@ void main()
 		const float fps = 1/frameTime;//the frames per second
 		hoverCar[0].XPos = hoverCar[0].hoverCarModel->GetX();//gets the x position of the player
 		hoverCar[0].ZPos = hoverCar[0].hoverCarModel->GetZ();//gets the z position of the player
+
 
 		float mouseMoveX = myEngine->GetMouseMovementX();
 		float mouseMoveY = myEngine->GetMouseMovementY();
@@ -269,9 +279,30 @@ void main()
 				hoverCar[0].carMoveState = Stationary;
 			}
 			break;
+		case Collision:
+			if (hoverCar[0].moveX > 0 || hoverCar[0].moveZ > 0)
+			{
+				float tempX = hoverCar[0].moveX;
+				float tempZ = hoverCar[0].moveZ;
+				hoverCar[0].moveX = -tempX/2;
+				hoverCar[0].moveZ = -tempZ/2;
+				if (hoverCar[0].lastCarMoveState == Forward)
+				{
+					hoverCar[0].carMoveState = Reverse;
+				}
+				if (hoverCar[0].lastCarMoveState == Reverse)
+				{
+					hoverCar[0].carMoveState = Forward;
+				}
+			}
+			else
+			{
+				hoverCar[0].carMoveState = Stationary;
+			}
+			break;
 		}
 
-
+		DetectCollision(hoverCar, isles, walls, kNumberOfWalls, kNumberOfIsles);
 
 		float playerVectorAngle = 90 - playerRotation;
 		playerVectorAngle = DegreesToRadians(playerVectorAngle);//converts the angle of the car rotation to radians
@@ -284,6 +315,8 @@ void main()
 		hoverCar[0].moveZOld = hoverCar[0].moveZ;
 		hoverCar[0].moveX = hoverCar[0].moveXOld + acceleration * frameTime;//calculating the new 
 		hoverCar[0].moveZ = hoverCar[0].moveZOld + acceleration * frameTime;
+
+		
 
 		for (int i = 0; i < kNumberOfCheckpoints; i++)
 		{
@@ -306,18 +339,6 @@ void main()
 				}
 			}
 		}
-		for (int i = 0; i < kNumberOfIsles; i++)
-		{
-			if ((hoverCar[0].XPos > isles[i].minX && hoverCar[0].XPos < isles[i].maxX) && (hoverCar[0].ZPos > isles[i].minZ && hoverCar[0].ZPos < isles[i].maxZ))
-			{
-				cout << "collision with isle " << i;
-			}
-		}
-		for (int i = 0; i < kNumberOfWalls; i++)
-		{
-
-		}
-
 
 
 		if (myEngine->KeyHeld(cameraDownKey))
@@ -340,6 +361,7 @@ void main()
 		{
 			myCamera->SetPosition(hoverCar[0].XPos,12,hoverCar[0].ZPos-30);
 			myCamera->ResetOrientation();
+			is1stPerson = false;
 		}
 		if (myEngine->KeyHeld(mouseShowKey))
 		{
@@ -348,6 +370,11 @@ void main()
 		if (!myEngine->KeyHeld(mouseShowKey))
 		{
 			myEngine->StartMouseCapture();
+		}
+		if (myEngine->KeyHit(camera1stPersonKey) && !is1stPerson)
+		{
+			myCamera->Move(0,-6.3,32);
+			is1stPerson = true;
 		}
 		if (myEngine->KeyHit(quitKey))
 		{
@@ -438,4 +465,23 @@ string PlayerRaceStateText(int raceState)
 	}
 	
 	return playerCheckpoint;
+}
+void DetectCollision(Vehicle hoverCar[], islestructure isles[], wallstructure walls[], int kNumberOfWalls, int kNumberOfIsles)
+{
+	for (int i = 0; i < kNumberOfIsles; i++)
+		{
+			if ((hoverCar[0].XPos > isles[i].minX && hoverCar[0].XPos < isles[i].maxX) && (hoverCar[0].ZPos > isles[i].minZ && hoverCar[0].ZPos < isles[i].maxZ))
+			{
+				hoverCar[0].lastCarMoveState = hoverCar[0].carMoveState;
+				hoverCar[0].carMoveState = Collision;
+			}
+		}
+		for (int i = 0; i < kNumberOfWalls; i++)
+		{
+			if ((hoverCar[0].XPos > walls[i].minX && hoverCar[0].XPos < walls[i].maxX) && (hoverCar[0].ZPos > walls[i].minZ && hoverCar[0].ZPos < walls[i].maxZ))
+			{
+				hoverCar[0].lastCarMoveState = hoverCar[0].carMoveState;
+				hoverCar[0].carMoveState = Collision;
+			}
+		}
 }
